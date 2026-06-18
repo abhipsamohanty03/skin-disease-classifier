@@ -1855,6 +1855,12 @@
                         <span>About Project</span>
                     </a>
                 </li>
+                <li class="menu-item" id="side-nav-settings">
+                    <a href="#" onclick="openSettingsModal()">
+                        <span class="menu-icon">⚙️</span>
+                        <span>API Settings</span>
+                    </a>
+                </li>
             </ul>
 
             <div class="sidebar-footer">
@@ -2010,13 +2016,12 @@
                     <p class="view-description">Upload high-resolution clinical images of skin lesions to analyze morphology and probability distribution.</p>
                 </div>
 
-                <!-- API Key Inline Setting -->
+                <!-- API Key hidden input (managed via Settings modal in sidebar) -->
+                <input type="hidden" id="classify-api-key">
+
+                <!-- Model selector kept visible for user convenience -->
                 <div class="api-settings-inline">
-                    <div class="api-settings-grid">
-                        <div>
-                            <label for="classify-api-key">Anthropic API Key (stored in memory/local storage)</label>
-                            <input type="password" id="classify-api-key" placeholder="sk-ant-..." onchange="updateApiKey(this.value)">
-                        </div>
+                    <div class="api-settings-grid" style="grid-template-columns: 1fr;">
                         <div>
                             <label for="classify-model">Claude AI Model Version</label>
                             <select id="classify-model" onchange="updateModel(this.value)">
@@ -2630,8 +2635,11 @@
             if (userInp === 'admin' && passInp === 'dermai123') {
                 state.authenticated = true;
                 state.currentUser = userInp;
-                state.apiKey = 'YOUR_API_KEY_HERE';
-                state.demoMode = false;
+
+                // Load API key from localStorage silently, fallback to placeholder
+                const savedKey = localStorage.getItem('dermai_api_key');
+                state.apiKey = savedKey || 'YOUR_API_KEY_HERE';
+                state.demoMode = !savedKey;
 
                 // Keep preferences minimal since login no longer collects them
                 localStorage.removeItem('dermai_save_key_pref');
@@ -2644,8 +2652,9 @@
                 // Populate session defaults
                 document.getElementById('welcome-title').textContent = `Welcome back, ${userInp}! 👋`;
                 
-                // Set initial inputs in main forms
+                // Silently set hidden API key input and settings modal input
                 document.getElementById('classify-api-key').value = state.apiKey;
+                document.getElementById('settings-api-key').value = savedKey || '';
                 document.getElementById('dash-demo-toggle').checked = state.demoMode;
                 
                 // Sync API statuses
@@ -2730,10 +2739,7 @@
                 state.demoMode = false;
                 document.getElementById('dash-demo-toggle').checked = false;
                 showToast('API key updated. Switched to Live Engine.', 'success');
-                // Auto save if user enabled the toggle on login
-                if (document.getElementById('save-api-key').checked) {
-                    localStorage.setItem('dermai_api_key', state.apiKey);
-                }
+                localStorage.setItem('dermai_api_key', state.apiKey);
             } else {
                 state.demoMode = true;
                 document.getElementById('dash-demo-toggle').checked = true;
@@ -3394,6 +3400,69 @@ Ensure that all 7 classes are present in the 'all_probabilities' object and thei
             document.getElementById('about-attribution-footer').textContent = `Developed by ${state.developerName}`;
         }
 
+        // --- SETTINGS MODAL ---
+        function openSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            const input = document.getElementById('settings-api-key');
+            // Pre-fill with current key if available
+            if (state.apiKey && state.apiKey !== 'YOUR_API_KEY_HERE') {
+                input.value = state.apiKey;
+            } else {
+                input.value = '';
+            }
+            document.getElementById('settings-status').style.display = 'none';
+            modal.style.display = 'flex';
+        }
+
+        function closeSettingsModal(e) {
+            if (e && e.target !== document.getElementById('settings-modal')) return;
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function applySettingsApiKey() {
+            const val = document.getElementById('settings-api-key').value.trim();
+            const saveKey = document.getElementById('settings-save-key').checked;
+            const statusBox = document.getElementById('settings-status');
+
+            if (!val) {
+                statusBox.style.display = 'block';
+                statusBox.style.background = 'var(--risk-high-bg)';
+                statusBox.style.color = 'var(--risk-high)';
+                statusBox.textContent = '⚠️ Please enter a valid API key before saving.';
+                return;
+            }
+
+            updateApiKey(val);
+            document.getElementById('classify-api-key').value = val;
+
+            if (saveKey) {
+                localStorage.setItem('dermai_api_key', val);
+            }
+
+            statusBox.style.display = 'block';
+            statusBox.style.background = 'var(--risk-low-bg)';
+            statusBox.style.color = 'var(--risk-low)';
+            statusBox.textContent = '✅ API key saved and applied. Live Engine is now active.';
+
+            setTimeout(() => {
+                document.getElementById('settings-modal').style.display = 'none';
+            }, 1200);
+        }
+
+        function clearSettingsApiKey() {
+            document.getElementById('settings-api-key').value = '';
+            updateApiKey('');
+            document.getElementById('classify-api-key').value = '';
+            const statusBox = document.getElementById('settings-status');
+            statusBox.style.display = 'block';
+            statusBox.style.background = 'var(--risk-medium-bg)';
+            statusBox.style.color = 'var(--risk-medium)';
+            statusBox.textContent = '🔄 API key cleared. Switched to Demo Mode.';
+            setTimeout(() => {
+                document.getElementById('settings-modal').style.display = 'none';
+            }, 1200);
+        }
+
         // --- INITIAL STATE LOADER ---
         window.addEventListener('DOMContentLoaded', () => {
             // Pre-load default histories
@@ -3403,7 +3472,10 @@ Ensure that all 7 classes are present in the 'all_probabilities' object and thei
             const savedApiKey = localStorage.getItem('dermai_api_key');
             if (savedApiKey) {
                 state.apiKey = savedApiKey;
+                // Populate hidden classify input silently
                 document.getElementById('classify-api-key').value = savedApiKey;
+                // Pre-fill settings modal input for convenience
+                document.getElementById('settings-api-key').value = savedApiKey;
             }
 
             const savedDeveloperName = localStorage.getItem('dermai_developer_name');
@@ -3423,5 +3495,40 @@ Ensure that all 7 classes are present in the 'all_probabilities' object and thei
             updateApiStatusIndicators();
         });
     </script>
+    <!-- SETTINGS MODAL -->
+    <div id="settings-modal" style="display:none; position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;" onclick="closeSettingsModal(event)">
+        <div style="background:var(--bg-card); border-radius:var(--radius-lg); padding:36px; width:100%; max-width:460px; box-shadow:var(--shadow-lg); position:relative; animation:floatUp 0.3s cubic-bezier(0.16,1,0.3,1);" onclick="event.stopPropagation()">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+                <div>
+                    <h2 style="font-size:1.2rem; margin-bottom:4px;">⚙️ API Settings</h2>
+                    <p style="font-size:0.85rem; color:var(--text-light);">Configure your Anthropic API key for live analysis.</p>
+                </div>
+                <button onclick="closeSettingsModal()" style="font-size:1.4rem; color:var(--text-light); line-height:1; padding:4px 8px;">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="settings-api-key">Anthropic API Key</label>
+                <div class="input-wrapper">
+                    <span class="input-icon">🔑</span>
+                    <input class="form-input" type="password" id="settings-api-key" placeholder="sk-ant-..." autocomplete="off">
+                    <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('settings-api-key', this)">Show</button>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-light); margin-top:6px;">Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--primary);">console.anthropic.com</a></p>
+            </div>
+
+            <label class="checkbox-label" style="font-size:0.85rem; margin-bottom:20px; display:flex;">
+                <input type="checkbox" id="settings-save-key" checked>
+                <span>Save key in localStorage on this device</span>
+            </label>
+
+            <div style="display:flex; gap:12px;">
+                <button onclick="applySettingsApiKey()" style="flex:1; background:var(--primary); color:#fff; padding:12px; border-radius:var(--radius-md); font-weight:600; font-size:0.95rem;">Save & Apply</button>
+                <button onclick="clearSettingsApiKey()" style="padding:12px 18px; border-radius:var(--radius-md); border:1px solid var(--border); color:var(--risk-high); font-size:0.9rem;">Clear Key</button>
+            </div>
+
+            <div id="settings-status" style="display:none; margin-top:14px; padding:10px 14px; border-radius:var(--radius-sm); font-size:0.85rem;"></div>
+        </div>
+    </div>
+
 </body>
 </html>
