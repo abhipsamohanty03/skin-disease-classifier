@@ -1805,25 +1805,7 @@
                     </div>
                 </div>
 
-                <div class="form-group" style="margin-bottom: 10px;">
-                    <label class="form-label" for="api-key">Anthropic API Key</label>
-                    <div class="input-wrapper">
-                        <span class="input-icon">🔑</span>
-                        <input class="form-input" type="password" id="api-key" placeholder="sk-ant-...">
-                        <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('api-key', this)">Show</button>
-                    </div>
-                </div>
 
-                <div class="api-key-toggle-container">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="save-api-key" checked>
-                        <span>Save key on this device</span>
-                    </label>
-                    <label class="checkbox-label" title="Enable mock analysis offline if you don't have an API key.">
-                        <input type="checkbox" id="enable-demo-mode" checked>
-                        <span>Demo (Mock) Mode</span>
-                    </label>
-                </div>
 
                 <button type="submit" class="login-btn">
                     <span>Sign In</span>
@@ -2355,7 +2337,7 @@
             currentUser: null,
             apiKey: '',
             selectedModel: 'claude-sonnet-4-6',
-            demoMode: true,
+            demoMode: false,
             developerName: 'Your Name',
             currentFile: null,
             history: []
@@ -2642,33 +2624,17 @@
             
             const userInp = document.getElementById('username').value.trim();
             const passInp = document.getElementById('password').value;
-            const apiInp = document.getElementById('api-key').value.trim();
-            const saveKey = document.getElementById('save-api-key').checked;
-            const demoChk = document.getElementById('enable-demo-mode').checked;
+
             
             // Hardcoded Credentials
             if (userInp === 'admin' && passInp === 'dermai123') {
                 state.authenticated = true;
                 state.currentUser = userInp;
-                state.apiKey = apiInp;
-                state.demoMode = demoChk;
-                
-                // If API Key is provided, store it or configure demo status
-                if (apiInp) {
-                    state.demoMode = false;
-                    if (saveKey) {
-                        localStorage.setItem('dermai_api_key', apiInp);
-                    } else {
-                        localStorage.removeItem('dermai_api_key');
-                    }
-                } else {
-                    // Force demoMode true if key is blank
-                    state.demoMode = true;
-                    showToast('No API key entered. Running in Demo (Mock) Mode.', 'warning');
-                }
+                state.apiKey = 'YOUR_API_KEY_HERE';
+                state.demoMode = false;
 
-                // Save options
-                localStorage.setItem('dermai_save_key_pref', saveKey);
+                // Keep preferences minimal since login no longer collects them
+                localStorage.removeItem('dermai_save_key_pref');
                 localStorage.setItem('dermai_demo_mode_pref', state.demoMode);
 
                 // Update UI layout states
@@ -2747,8 +2713,8 @@
             if (state.demoMode) {
                 showToast('Platform switched to Demo (Mock) Mode.', 'warning');
             } else {
-                if (!state.apiKey) {
-                    showToast('Anthropic API Key is missing. Live scans will fail until a key is supplied.', 'error');
+                if (!state.apiKey || state.apiKey === 'YOUR_API_KEY_HERE') {
+                    showToast('Anthropic API Key is missing. Replace YOUR_API_KEY_HERE in the code to enable live scans.', 'error');
                 } else {
                     showToast('Platform switched to Live Engine Mode.', 'success');
                 }
@@ -3437,7 +3403,6 @@ Ensure that all 7 classes are present in the 'all_probabilities' object and thei
             const savedApiKey = localStorage.getItem('dermai_api_key');
             if (savedApiKey) {
                 state.apiKey = savedApiKey;
-                document.getElementById('api-key').value = savedApiKey;
                 document.getElementById('classify-api-key').value = savedApiKey;
             }
 
@@ -3448,15 +3413,9 @@ Ensure that all 7 classes are present in the 'all_probabilities' object and thei
                 updateDeveloperName(savedDeveloperName);
             }
 
-            const savedSaveKeyPref = localStorage.getItem('dermai_save_key_pref');
-            if (savedSaveKeyPref !== null) {
-                document.getElementById('save-api-key').checked = (savedSaveKeyPref === 'true');
-            }
-
             const savedDemoModePref = localStorage.getItem('dermai_demo_mode_pref');
             if (savedDemoModePref !== null) {
                 state.demoMode = (savedDemoModePref === 'true');
-                document.getElementById('enable-demo-mode').checked = state.demoMode;
                 document.getElementById('dash-demo-toggle').checked = state.demoMode;
             }
 
